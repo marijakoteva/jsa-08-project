@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "./start.sh"
+    "start": "node services/auth/index.js & node services/storage/index.js & node services/users/index.js & node services/proxy/index.js"
   },
   "repository": {
     "type": "git",
