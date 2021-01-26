@@ -1,0 +1,31 @@
+
+
+{
+    "services": {
+        "proxy": {
+            "port": 10000
+        },
+        "auth": {
+            "port": 10001
+        },
+        "storage": {
+            "port": 10002
+        },
+        "users": {
+            "port": 10003
+        }
+    },
+    "security": {
+        "jwt_key": "test123!"
+    },
+    "db": {
+        "username": "wzy_test",
+        "password": "1234",
+        "host": "cluster0.qdqvt.mongodb.net",
+        "dbname": "jsa08_project"
+    },
+    "mailer": {
+        "key": "",
+        "domain": ""
+    }
+}

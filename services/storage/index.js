@@ -1,39 +1,78 @@
-const cfg = require('../../pkg/config');
+const fs = require('fs');
+const strings = require('../../../pkg/strings');
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const jwt = require('express-jwt');
-const upload = require('express-fileupload');
+const storeFile = async (req, res) => {
+    console.log(req.files);
+    console.log(req.body);
 
-const storage = require('./handlers/storage');
+    let public = req.body.public && req.body.public === 'true' ? true : false;
 
-const api = express();
+    const allowedTypes = [
+        'image/jpeg',
+        'image/pjpeg',
+        'image/png',
+        'image/gif'
+    ];
 
-api.use(bodyParser.json());
-api.use(jwt({
-    secret: cfg.get('server').jwt_key,
-    algorithms: ['HS256']
-}).unless({
-    path: [
-        { url: /\/api\/v1\/storage\/public\/.*/, methods: ['GET'] }
-    ]
-}));
-api.use(function (err, req, res, next) {
-    if (err.name === 'UnauthorizedError') {
-        res.status(401).send('Bad JWT');
+    if(!allowedTypes.includes(req.files.document.mimetype)) {
+        return res.status(400).send('Bad Request: Bad Type');
     }
-});
-api.use(upload({
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50 mb == (50 * 1024) kb == (50 * 1024 * 1024) b
-}));
 
-api.post('/api/v1/storage', storage.storeFile);
-api.get('/api/v1/storage/:fid', storage.getFile);
-api.get('/api/v1/storage/public/:fid', storage.getPublicFile);
+    const allowedSize = 10 * 1024 * 1024;
 
-api.listen(cfg.get('server').port, err => {
-    if (err) {
-        return console.log(err);
+    if(allowedSize < req.files.document.size) {
+        return res.status(400).send('Bad Request: File Too Large');
     }
-    console.log(`Server succcessfully started on port ${cfg.get('server').port}`)
-});
+
+    let dir = public ? 'public' : req.user.uid;
+
+    // check if user directory exists, if not create
+    let userDir = `${__dirname}/../../../uploads/${dir}`;
+    if(!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir);
+    }
+
+    let fileName = `${strings.makeID(8)}_${req.files.document.name.replace(/ /g, '_')}`;
+    let filePath = `${userDir}/${fileName}`;
+
+    try {
+        await req.files.document.mv(filePath);
+    } catch(err) {
+        console.log(err);
+        return res.status(500).send('Internal Server Error');
+    }
+
+    res.status(201).send({
+        filename: fileName
+    });
+};
+
+const getFile = (req, res) => {
+    let userDir = `${__dirname}/../../../uploads/${req.user.uid}`;
+    let fileName = req.params.fid;
+    let filePath = `${userDir}/${fileName}`;
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send('File Not Found');
+    }
+
+    res.download(filePath);
+};
+
+const getPublicFile = (req, res) => {
+    let userDir = `${__dirname}/../../../uploads/public`;
+    let fileName = req.params.fid;
+    let filePath = `${userDir}/${fileName}`;
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send('File Not Found');
+    }
+
+    res.download(filePath);
+};
+
+module.exports = {
+    storeFile,
+    getFile,
+    getPublicFile
+};
